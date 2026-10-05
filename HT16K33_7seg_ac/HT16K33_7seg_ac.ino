@@ -1,13 +1,19 @@
 // test routine for HT16K33 dot LED driver
-// made by Vaphio @ Sept.26, 2026
+// for 7seg anode common LED OSL10801-IRGB
+// made by Vaphio @ Oct.5, 2026
+
 #include <Wire.h>
 
 const uint8_t HT16K33_addr=0x70;
 const uint8_t HT16K33_init[4] = {0x21, 0x81, 0xA0, 0xEA1};
-const uint8_t digit_code[16] = {0x7E, 0x0C, 0xB6, 0x9E, 0xCC, 0xDA, 0xFA, 0x0E, 0xFE, 0xDE, 0xEE, 0xF8, 0x72, 0xBC, 0xF2, 0xE2};
+const uint8_t digit_code[16] = {
+  0x3F, 0x06, 0x5B, 0x4F, 0x66, 0x6D, 0x7D, 0x07, 0x7F, 0x6F, 
+  0x77, 0x7C, 0x39, 0x5E, 0x79, 0x71};    // 7seg code without dp a:C0 ... g:C6
+const uint8_t code_width = 7;
 
-uint8_t dram[16];
-bool col;
+const uint8_t b_anode = 4;  // blue common pin is A2
+const uint8_t g_anode = 8;  // green common pin is A3
+const uint8_t r_anode = 16;  // red common pin is A4
 
 void setup() {
   Wire.begin();
@@ -21,29 +27,19 @@ void setup() {
 }
 
 void loop() {
-  int base = 1000;
-  for (int i=0; i<50; i++) {
-    base++;
-    set4dig(base, 3);
-    delay(1000);
-    setColon(col);
-    col = !col;
-  }
+  count(r_anode, 200, 16);
   delay(1000);
-  clearAll();
-  for (int i=0; i<256; i++) {
-    base++;
-    setHex(base, 3);
-    delay(100);
-  }
+  count(g_anode, 200, 16);
   delay(1000);
-  clearAll();
-  for (int i=0; i<50; i++) {
-    base++;
-    set4dig(base, 1);
-  //  set4dig(base, red);
-    delay(100);
-  }
+  count(b_anode, 200, 16);
+  delay(1000);
+  count(r_anode | g_anode, 300, 10);
+  delay(1000);
+  count(g_anode | b_anode, 300, 10);
+  delay(1000);
+  count(0x14, 300, 10);
+  delay(1000);
+  count(0x0C, 300, 10);
   delay(1000);
   clearAll();
   delay(1000);
@@ -55,74 +51,27 @@ void sendCmd(uint8_t cmd) {
   Wire.endTransmission();
 }
 
-void sendBlockCmd(uint8_t* data) {
-  int size = sizeof(data) / sizeof(data[0]);
-  Wire.beginTransmission(HT16K33_addr);
-  for (int i=0; i<size; i++) {
-    Wire.write(data[i]);
-  }
-  Wire.endTransmission();
-  delay(10);
-}
-
-void setLED(int dig) {
-  Wire.beginTransmission(HT16K33_addr);
-  Wire.write(0x00);
-  for (int i=0; i<dig; i++) {
-    Wire.write(dram[i]);
-  }
-  Wire.endTransmission();
-}
-
-void setColon(bool sw) {
-  Wire.beginTransmission(HT16K33_addr);
-  Wire.write(0x08);
-  if (sw) {
-    Wire.write(0x06);
-  } else {
-    Wire.write(0x00);
-  }
-  Wire.endTransmission();
-}
-
-void set4dig(int num, int dec) {
-  int dig[4];
-  for (int i=0; i<4; i++) {
-    dig[3-i] = num % 10;
-    num = num / 10;
-  }
-  for (int i=0; i<4; i++) {
-    setNum(i, dig[i], dec);
+void count(uint8_t anode, int wait, int cmax) {
+  uint8_t code;
+  for (int i=0; i<cmax; i++) {
+    code = digit_code[i];
+    setLED(code, anode);
+    delay(wait);
   }
 }
 
-void setNum(int dig, int num, int dec) {
-  int period = 0;
-  Wire.beginTransmission(HT16K33_addr);
-  Wire.write(dig*2);
-  if (dig==dec) {
-    period = 1;
-  } else {
-    period = 0;
-  }
-  Wire.write(digit_code[num] | period);
-  Wire.endTransmission();
-}
-
-void setHex(int num, int cl) {
-  int dig[4];
-  for (int i=0; i<4; i++) {
-    dig[3-i] = num %16;
-    num = num / 16;
-  }
-  for (int i=0; i<4; i++) {
-    setNum(i, dig[i], cl);
-  }
-}
-
-void setDram(uint8_t data) {
-  for (int i=0; i<16; i++) {
-    dram[i] = data;
+void setLED(uint8_t code, uint8_t anode) {
+  for (int i=0; i<code_width; i++) {
+    Wire.beginTransmission(HT16K33_addr);
+    if (((code >> i) & 1) == 1) {
+      Wire.write(i*2);
+      Wire.write(anode);
+    } else {
+      Wire.write(i*2);
+      Wire.write(0x00);
+    }
+    Wire.endTransmission();
+    delay(10);
   }
 }
 
