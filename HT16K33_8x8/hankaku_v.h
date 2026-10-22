@@ -1,10 +1,10 @@
 // 5x7dots font data for dot matrix led
 // made by Vaphio @Sept.24,2026
 
-byte charWidth = 5;
-byte charHeight = 7;
-byte codeOffset = 32;
-byte numOffset = 16;
+const int charWidth = 5;
+const int charHeight = 7;
+const int codeOffset = 32;
+const int numOffset = 16;
 
 byte HANV[91][5]={
    { B0000000, B0000000, B0000000, B0000000, B0000000},  //    32
